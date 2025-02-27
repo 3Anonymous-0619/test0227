@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to use camera of photo booth</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .gallery {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            padding: 20px;
+        }
+
+        .gallery img {
+            width: 250px;
+            margin: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .gallery img:hover {
+            transform: scale(1.1);
+        }
+
+        footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            position: fixed;
+            width: 100%;
+            bottom: 0;
+        }
+
+        .upload-btn, .capture-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .upload-btn:hover, .capture-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .camera-container {
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        video {
+            width: 320px;
+            height: 240px;
+            background-color: #000;
+            border: 2px solid #333;
+            border-radius: 5px;
+            transform: scaleX(-1); /* This will mirror the video */
+        }
+
+        .preview-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .preview-container img {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+        }
+
+        .download-btn {
+            display: block;
+            margin-top: 10px;
+            padding: 5px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .download-btn:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Welcome to use camera of photo booth</h1>
+    <p>Take Photos with Your Camera, See Them in a Grid, and Download Them</p>
+</header>
+
+<div class="camera-container">
+    <video id="video" autoplay></video>
+    <button class="capture-btn" onclick="capturePhoto()">Capture Photo</button>
+</div>
+
+<div class="preview-container" id="previewContainer">
+    <!-- Captured photos will appear here -->
+</div>
+
+<footer>
+    <p>&copy; 2025 Picabooth Clone</p>
+</footer>
+
+<script>
+    const videoElement = document.getElementById("video");
+    const previewContainer = document.getElementById("previewContainer");
+    const constraints = {
+        video: { facingMode: "user" }
+    };
+
+    const capturedImages = [];
+
+    // Function to start camera
+    function startCamera() {
+        navigator.mediaDevices.getUserMedia(constraints)
+            .then(stream => {
+                videoElement.srcObject = stream;
+            })
+            .catch(error => {
+                console.error("Error accessing the camera:", error);
+            });
+    }
+
+    // Function to capture a photo
+    function capturePhoto() {
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+
+        // Set canvas dimensions to video dimensions
+        canvas.width = videoElement.videoWidth;
+        canvas.height = videoElement.videoHeight;
+
+        // Draw the current frame from the video onto the canvas with a mirror effect
+        context.translate(canvas.width, 0); // Move to the right edge
+        context.scale(-1, 1); // Flip horizontally
+        context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+        // Convert the canvas to an image URL
+        const imgUrl = canvas.toDataURL("image/png");
+
+        // Add the captured image to the array
+        capturedImages.push(imgUrl);
+
+        // Create an img element and add it to the preview container
+        const img = document.createElement("img");
+        img.src = imgUrl;
+        previewContainer.appendChild(img);
+
+        // If we have 4 photos, create a composite image and show download button
+        if (capturedImages.length === 4) {
+            createCompositeImage();
+        }
+    }
+
+    // Function to create the composite image from 4 photos
+    function createCompositeImage() {
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+
+        const imgWidth = 150; // Width of each image
+        const imgHeight = 150; // Height of each image
+
+        // Set canvas height and width for the composite image
+        canvas.width = imgWidth;
+        canvas.height = imgHeight * 4;
+
+        // Draw each image on the canvas in a vertical layout
+        capturedImages.forEach((imgUrl, index) => {
+            const img = new Image();
+            img.src = imgUrl;
+            img.onload = function () {
+                context.drawImage(img, 0, imgHeight * index, imgWidth, imgHeight);
+
+                // If all images are loaded, show download button
+                if (index === 3) {
+                    const compositeImgUrl = canvas.toDataURL("image/png");
+                    showDownloadButton(compositeImgUrl);
+                }
+            };
+        });
+    }
+
+    // Function to display the download button for the composite image
+    function showDownloadButton(compositeImgUrl) {
+        const downloadBtn = document.createElement("button");
+        downloadBtn.textContent = "Download Composite Image";
+        downloadBtn.classList.add("download-btn");
+        downloadBtn.onclick = function () {
+            downloadImage(compositeImgUrl);
+        };
+
+        previewContainer.appendChild(downloadBtn);
+    }
+
+    // Function to download the image
+    function downloadImage(imageUrl) {
+        const link = document.createElement("a");
+        link.href = imageUrl;
+        link.download = "composite-photo.png"; // Set the file name for download
+        link.click();
+    }
+
+    // Start the camera when the page loads
+    window.onload = startCamera;
+</script>
+
+</body>
+</html>
