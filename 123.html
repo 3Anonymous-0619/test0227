@@ -1,44 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to use camera of photo booth</title>
+    <title>Photo Booth</title>
     <style>
+        * { box-sizing: border-box; }
         body {
-            font-family: Arial, sans-serif;
+            font-family: Arial, "Noto Sans SC", sans-serif;
             background-color: #f4f4f4;
+            color: #222;
             margin: 0;
-            padding: 0;
+            padding: 0 0 84px;
         }
-
         header {
             background-color: #333;
             color: white;
             text-align: center;
             padding: 20px;
         }
-
-        .gallery {
+        .camera-container {
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 16px 8px;
+        }
+        video {
+            width: min(100%, 480px);
+            aspect-ratio: 4 / 3;
+            height: auto;
+            background-color: #000;
+            border: 2px solid #333;
+            border-radius: 5px;
+            transform: scaleX(-1);
+        }
+        .status, .photo-count {
+            text-align: center;
+            margin: 12px 16px 0;
+            line-height: 1.5;
+        }
+        .status { min-height: 1.5em; }
+        .photo-count { color: #555; }
+        button {
+            border: 0;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            padding: 10px 20px;
+            font-size: 1rem;
+        }
+        button:disabled {
+            cursor: not-allowed;
+            opacity: .55;
+        }
+        .capture-btn, .reset-btn {
+            background-color: #007BFF;
+            margin-top: 16px;
+        }
+        .capture-btn:hover:not(:disabled), .reset-btn:hover {
+            background-color: #0056b3;
+        }
+        .preview-container {
             display: flex;
             justify-content: center;
             flex-wrap: wrap;
-            padding: 20px;
+            gap: 10px;
+            padding: 16px;
         }
-
-        .gallery img {
-            width: 250px;
-            margin: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            cursor: pointer;
-            transition: transform 0.3s ease;
+        .preview-container img {
+            width: min(150px, calc(50vw - 24px));
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 4px;
         }
-
-        .gallery img:hover {
-            transform: scale(1.1);
+        .action-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 0 16px 24px;
         }
-
+        .download-btn { background-color: #28a745; }
+        .download-btn:hover { background-color: #218838; }
+        .reset-btn { margin-top: 0; }
         footer {
             background-color: #333;
             color: white;
@@ -48,190 +93,194 @@
             width: 100%;
             bottom: 0;
         }
-
-        .upload-btn, .capture-btn {
-            display: block;
-            margin: 20px auto;
-            padding: 10px 20px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .upload-btn:hover, .capture-btn:hover {
-            background-color: #0056b3;
-        }
-
-        .camera-container {
-            display: flex;
-            justify-content: center;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        video {
-            width: 320px;
-            height: 240px;
-            background-color: #000;
-            border: 2px solid #333;
-            border-radius: 5px;
-            transform: scaleX(-1); /* This will mirror the video */
-        }
-
-        .preview-container {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .preview-container img {
-            width: 150px;
-            height: 150px;
-            object-fit: cover;
-        }
-
-        .download-btn {
-            display: block;
-            margin-top: 10px;
-            padding: 5px 15px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .download-btn:hover {
-            background-color: #218838;
-        }
+        footer p { margin: 0; }
     </style>
 </head>
 <body>
-
 <header>
-    <h1>Welcome to use camera of photo booth</h1>
-    <p>Take Photos with Your Camera, See Them in a Grid, and Download Them</p>
+    <h1>Photo Booth</h1>
+    <p>拍摄四张照片，生成并下载竖版拼图</p>
 </header>
 
-<div class="camera-container">
-    <video id="video" autoplay></video>
-    <button class="capture-btn" onclick="capturePhoto()">Capture Photo</button>
-</div>
+<main>
+    <div class="camera-container">
+        <video id="video" autoplay playsinline aria-label="摄像头预览"></video>
+        <p id="cameraStatus" class="status" role="status" aria-live="polite">正在请求摄像头权限…</p>
+        <p id="photoCount" class="photo-count">已拍 0 / 4 张</p>
+        <button id="captureButton" class="capture-btn" type="button" disabled>拍摄</button>
+    </div>
 
-<div class="preview-container" id="previewContainer">
-    <!-- Captured photos will appear here -->
-</div>
+    <div class="preview-container" id="previewContainer" aria-label="照片预览"></div>
+    <div class="action-container" id="actionContainer"></div>
+</main>
 
 <footer>
-    <p>&copy; 2025 Picabooth Clone</p>
+    <p>Photo Booth</p>
 </footer>
 
 <script>
     const videoElement = document.getElementById("video");
+    const cameraStatus = document.getElementById("cameraStatus");
+    const photoCount = document.getElementById("photoCount");
+    const captureButton = document.getElementById("captureButton");
     const previewContainer = document.getElementById("previewContainer");
-    const constraints = {
-        video: { facingMode: "user" }
-    };
-
+    const actionContainer = document.getElementById("actionContainer");
+    const constraints = { video: { facingMode: "user" }, audio: false };
     const capturedImages = [];
+    let cameraStream = null;
 
-    // Function to start camera
-    function startCamera() {
-        navigator.mediaDevices.getUserMedia(constraints)
-            .then(stream => {
-                videoElement.srcObject = stream;
-            })
-            .catch(error => {
-                console.error("Error accessing the camera:", error);
-            });
+    function setStatus(message) {
+        cameraStatus.textContent = message;
     }
 
-    // Function to capture a photo
+    function explainCameraError(error) {
+        if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+            return "没有获得摄像头权限。请在浏览器的站点设置中允许访问摄像头后刷新页面。";
+        }
+        if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+            return "没有检测到可用摄像头。";
+        }
+        if (error.name === "NotReadableError" || error.name === "TrackStartError") {
+            return "摄像头可能正被其他应用占用，请关闭占用摄像头的应用后重试。";
+        }
+        return "无法打开摄像头：" + (error.message || error.name || "未知错误");
+    }
+
+    async function startCamera() {
+        captureButton.disabled = true;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setStatus("当前页面无法访问摄像头。请通过 localhost 或 HTTPS 打开。");
+            return;
+        }
+
+        setStatus("正在连接摄像头，请在浏览器提示中允许访问。");
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            videoElement.srcObject = cameraStream;
+            await videoElement.play();
+            captureButton.disabled = false;
+            setStatus("摄像头已就绪，可以开始拍摄。");
+        } catch (error) {
+            setStatus(explainCameraError(error));
+        }
+    }
+
+    function stopCamera() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+        }
+        videoElement.srcObject = null;
+    }
+
     function capturePhoto() {
+        if (!cameraStream || videoElement.videoWidth === 0 || capturedImages.length >= 4) {
+            return;
+        }
+
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
-
-        // Set canvas dimensions to video dimensions
         canvas.width = videoElement.videoWidth;
         canvas.height = videoElement.videoHeight;
 
-        // Draw the current frame from the video onto the canvas with a mirror effect
-        context.translate(canvas.width, 0); // Move to the right edge
-        context.scale(-1, 1); // Flip horizontally
+        // 保存的照片也采用镜像效果，与预览一致。
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
         context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
-        // Convert the canvas to an image URL
-        const imgUrl = canvas.toDataURL("image/png");
+        const imageUrl = canvas.toDataURL("image/png");
+        capturedImages.push(imageUrl);
 
-        // Add the captured image to the array
-        capturedImages.push(imgUrl);
+        const image = document.createElement("img");
+        image.src = imageUrl;
+        image.alt = "第 " + capturedImages.length + " 张照片";
+        previewContainer.appendChild(image);
+        photoCount.textContent = "已拍 " + capturedImages.length + " / 4 张";
 
-        // Create an img element and add it to the preview container
-        const img = document.createElement("img");
-        img.src = imgUrl;
-        previewContainer.appendChild(img);
-
-        // If we have 4 photos, create a composite image and show download button
         if (capturedImages.length === 4) {
+            captureButton.disabled = true;
+            setStatus("四张照片已拍好，正在生成拼图…");
+            stopCamera();
             createCompositeImage();
         }
     }
 
-    // Function to create the composite image from 4 photos
-    function createCompositeImage() {
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d");
-
-        const imgWidth = 150; // Width of each image
-        const imgHeight = 150; // Height of each image
-
-        // Set canvas height and width for the composite image
-        canvas.width = imgWidth;
-        canvas.height = imgHeight * 4;
-
-        // Draw each image on the canvas in a vertical layout
-        capturedImages.forEach((imgUrl, index) => {
-            const img = new Image();
-            img.src = imgUrl;
-            img.onload = function () {
-                context.drawImage(img, 0, imgHeight * index, imgWidth, imgHeight);
-
-                // If all images are loaded, show download button
-                if (index === 3) {
-                    const compositeImgUrl = canvas.toDataURL("image/png");
-                    showDownloadButton(compositeImgUrl);
-                }
-            };
+    function loadImage(imageUrl) {
+        return new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error("照片加载失败，请重新拍摄。"));
+            image.src = imageUrl;
         });
     }
 
-    // Function to display the download button for the composite image
-    function showDownloadButton(compositeImgUrl) {
-        const downloadBtn = document.createElement("button");
-        downloadBtn.textContent = "Download Composite Image";
-        downloadBtn.classList.add("download-btn");
-        downloadBtn.onclick = function () {
-            downloadImage(compositeImgUrl);
-        };
+    async function createCompositeImage() {
+        try {
+            // 等四张图片全部加载后再绘制，避免异步加载顺序造成漏图。
+            const images = await Promise.all(capturedImages.map(loadImage));
+            const cellSize = 600;
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+            canvas.width = cellSize;
+            canvas.height = cellSize * images.length;
 
-        previewContainer.appendChild(downloadBtn);
+            images.forEach((image, index) => {
+                const cropSize = Math.min(image.naturalWidth, image.naturalHeight);
+                const cropX = (image.naturalWidth - cropSize) / 2;
+                const cropY = (image.naturalHeight - cropSize) / 2;
+                context.drawImage(
+                    image,
+                    cropX, cropY, cropSize, cropSize,
+                    0, index * cellSize, cellSize, cellSize
+                );
+            });
+
+            showDownloadButton(canvas.toDataURL("image/png"));
+            setStatus("拼图已生成，可以下载或重新拍摄。");
+        } catch (error) {
+            setStatus(error.message || "生成拼图失败，请重新拍摄。");
+            addResetButton();
+        }
     }
 
-    // Function to download the image
-    function downloadImage(imageUrl) {
-        const link = document.createElement("a");
-        link.href = imageUrl;
-        link.download = "composite-photo.png"; // Set the file name for download
-        link.click();
+    function showDownloadButton(imageUrl) {
+        const downloadButton = document.createElement("button");
+        downloadButton.type = "button";
+        downloadButton.textContent = "下载拼图";
+        downloadButton.className = "download-btn";
+        downloadButton.addEventListener("click", () => {
+            const link = document.createElement("a");
+            link.href = imageUrl;
+            link.download = "composite-photo.png";
+            link.click();
+        });
+        actionContainer.appendChild(downloadButton);
+        addResetButton();
     }
 
-    // Start the camera when the page loads
-    window.onload = startCamera;
+    function addResetButton() {
+        if (actionContainer.querySelector(".reset-btn")) return;
+        const resetButton = document.createElement("button");
+        resetButton.type = "button";
+        resetButton.textContent = "重新拍摄";
+        resetButton.className = "reset-btn";
+        resetButton.addEventListener("click", resetSession);
+        actionContainer.appendChild(resetButton);
+    }
+
+    function resetSession() {
+        stopCamera();
+        capturedImages.length = 0;
+        previewContainer.replaceChildren();
+        actionContainer.replaceChildren();
+        photoCount.textContent = "已拍 0 / 4 张";
+        setStatus("正在重新启动摄像头…");
+        startCamera();
+    }
+
+    captureButton.addEventListener("click", capturePhoto);
+    window.addEventListener("load", startCamera);
+    window.addEventListener("pagehide", stopCamera);
 </script>
-
 </body>
 </html>
-
